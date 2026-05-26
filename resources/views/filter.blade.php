@@ -15,13 +15,23 @@
             -ms-overflow-style: none;
             scrollbar-width: none;
         }
-        
+
         /* Animasi berkedip untuk indikator rekaman */
         @keyframes pulse-red {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
         }
-        .animate-pulse-red { animation: pulse-red 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+
+        .animate-pulse-red {
+            animation: pulse-red 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
     </style>
 </head>
 
@@ -50,7 +60,7 @@
 
                 <div class="p-4 border border-gray-200 rounded-lg bg-gray-50">
                     <label class="block text-sm font-bold text-gray-700 mb-3">Sumber Audio (Pilih File / Rekam)</label>
-                    
+
                     <div class="flex items-center gap-3 mb-4">
                         <button type="button" id="recordBtn" class="bg-red-100 text-red-600 px-4 py-2 rounded-md text-sm font-bold hover:bg-red-200 transition flex items-center gap-2 shadow-sm border border-red-200">
                             🎙️ Mulai Merekam
@@ -124,34 +134,34 @@
 
             <div class="flex-1 flex flex-col items-center justify-center">
                 @if ($outputMessage !== '')
-                    <div class="w-full flex flex-col items-center animate-fade-in">
-                        @if ($avatarUrl !== '')
-                            <img src="{{ $avatarUrl }}" alt="Avatar" class="w-28 h-28 rounded-full bg-white shadow-md border-4 border-green-100 mb-5 hover:scale-105 transition-transform">
-                        @endif
+                <div class="w-full flex flex-col items-center animate-fade-in">
+                    @if ($avatarUrl !== '')
+                    <img src="{{ $avatarUrl }}" alt="Avatar" class="w-28 h-28 rounded-full bg-white shadow-md border-4 border-green-100 mb-5 hover:scale-105 transition-transform">
+                    @endif
 
-                        @if ($pesanDinamis !== '')
-                            <div class="text-center text-gray-800 mb-5 p-4 bg-green-50 rounded-lg border border-green-200 w-full text-sm">
-                                {!! $pesanDinamis !!}
-                            </div>
-                        @endif
-
-                        <p class="text-center text-sm font-medium mb-5">{!! $outputMessage !!}</p>
-
-                        @if ($outputFileUrl !== '')
-                            <audio controls class="w-full mb-5 shadow-sm rounded-full">
-                                <source src="{{ $outputFileUrl }}" type="audio/mpeg">
-                                Browser Anda tidak mendukung elemen audio.
-                            </audio>
-                            <a href="{{ $outputFileUrl }}" download="{{ $outputFileJudul }}.mp3" class="w-full flex justify-center py-3 px-4 rounded-md shadow-md text-sm font-bold text-white bg-green-600 hover:bg-green-700 transition">
-                                Download File Output
-                            </a>
-                        @endif
+                    @if ($pesanDinamis !== '')
+                    <div class="text-center text-gray-800 mb-5 p-4 bg-green-50 rounded-lg border border-green-200 w-full text-sm">
+                        {!! $pesanDinamis !!}
                     </div>
+                    @endif
+
+                    <p class="text-center text-sm font-medium mb-5">{!! $outputMessage !!}</p>
+
+                    @if ($outputFileUrl !== '')
+                    <audio controls class="w-full mb-5 shadow-sm rounded-full">
+                        <source src="{{ $outputFileUrl }}" type="audio/mpeg">
+                        Browser Anda tidak mendukung elemen audio.
+                    </audio>
+                    <a href="{{ $outputFileUrl }}" download="{{ $outputFileJudul }}.mp3" class="w-full flex justify-center py-3 px-4 rounded-md shadow-md text-sm font-bold text-white bg-green-600 hover:bg-green-700 transition">
+                        Download File Output
+                    </a>
+                    @endif
+                </div>
                 @else
-                    <div class="flex flex-col items-center text-gray-400 opacity-60">
-                        <span class="text-6xl mb-4">📼</span>
-                        <p class="text-sm font-medium text-center">Menunggu input.<br>Hasil audio akan muncul di sini.</p>
-                    </div>
+                <div class="flex flex-col items-center text-gray-400 opacity-60">
+                    <span class="text-6xl mb-4">📼</span>
+                    <p class="text-sm font-medium text-center">Menunggu input.<br>Hasil audio akan muncul di sini.</p>
+                </div>
                 @endif
             </div>
         </div>
@@ -164,64 +174,64 @@
                     Riwayat
                 </div>
                 @if ($history->isNotEmpty())
-                    <span class="bg-gray-100 text-gray-600 text-xs font-bold px-2.5 py-1 rounded-full">{{ $history->count() }} Total</span>
+                <span class="bg-gray-100 text-gray-600 text-xs font-bold px-2.5 py-1 rounded-full">{{ $history->count() }} Total</span>
                 @endif
             </h2>
 
             <div class="flex-1">
                 @if ($history->isNotEmpty())
 
-                    <div class="flex gap-2 mb-4">
-                        <form method="POST" action="{{ url('/download-all') }}" class="flex-1">
-                            @csrf
-                            <button type="submit" class="w-full text-indigo-700 bg-indigo-100 hover:bg-indigo-200 font-bold rounded-md text-[11px] px-2 py-2 transition flex justify-center items-center h-full">
-                                Unduh Semua
-                            </button>
-                        </form>
-                        <form method="POST" action="{{ url('/delete-all') }}" class="flex-1" onsubmit="return confirm('Yakin ingin menghapus SEMUA riwayat dan file audio secara permanen?');">
-                            @csrf
-                            <button type="submit" class="w-full text-red-700 bg-red-100 hover:bg-red-200 font-bold rounded-md text-[11px] px-2 py-2 transition flex justify-center items-center h-full">
-                                Hapus Semua
-                            </button>
-                        </form>
-                    </div>
+                <div class="flex gap-2 mb-4">
+                    <form method="POST" action="{{ url('/download-all') }}" class="flex-1">
+                        @csrf
+                        <button type="submit" class="w-full text-indigo-700 bg-indigo-100 hover:bg-indigo-200 font-bold rounded-md text-[11px] px-2 py-2 transition flex justify-center items-center h-full">
+                            Unduh Semua
+                        </button>
+                    </form>
+                    <form method="POST" action="{{ url('/delete-all') }}" class="flex-1" onsubmit="return confirm('Yakin ingin menghapus SEMUA riwayat dan file audio secara permanen?');">
+                        @csrf
+                        <button type="submit" class="w-full text-red-700 bg-red-100 hover:bg-red-200 font-bold rounded-md text-[11px] px-2 py-2 transition flex justify-center items-center h-full">
+                            Hapus Semua
+                        </button>
+                    </form>
+                </div>
 
-                    <div class="space-y-4">
-                        @foreach ($history as $item)
-                            <div class="border border-gray-200 rounded-lg p-4 bg-gray-50 hover:bg-indigo-50 transition border-l-4 border-l-indigo-400 cursor-pointer shadow-sm hover:shadow"
-                                data-title="{{ $item->judul }}"
-                                data-original="{{ $item->original_name }}"
-                                data-filter="{{ $item->filter }}"
-                                data-date="{{ $item->waktu }}"
-                                data-file="{{ asset($item->file) }}"
-                                onclick="openAudioModal(this)">
-                                <div class="flex justify-between items-start mb-2">
-                                    <div class="truncate pr-2">
-                                        <div class="font-bold text-gray-800 truncate">{{ $item->judul }}</div>
-                                        <div class="text-[10px] text-gray-500 truncate mt-1">{{ $item->original_name }}</div>
-                                    </div>
-                                    <span class="shrink-0 bg-indigo-100 text-indigo-800 text-[10px] font-bold px-2 py-1 rounded shadow-sm uppercase">
-                                        {{ $item->filter }}
-                                    </span>
-                                </div>
-                                <div class="text-xs text-gray-400 mb-4 font-medium">{{ $item->waktu }}</div>
-
-                                <div class="flex gap-2" onclick="event.stopPropagation();">
-                                    <a href="{{ asset($item->file) }}" download="{{ $item->judul }}.mp3" class="flex-1 text-center text-indigo-600 bg-indigo-100 hover:bg-indigo-200 font-semibold rounded text-xs px-2 py-2 transition">Unduh</a>
-                                    <form method="POST" action="{{ url('/delete') }}" class="flex-1" onsubmit="return confirm('Hapus file output ini secara permanen dari server?');">
-                                        @csrf
-                                        <input type="hidden" name="delete_id" value="{{ $item->id }}">
-                                        <button type="submit" class="w-full text-red-600 bg-red-100 hover:bg-red-200 font-semibold rounded text-xs px-2 py-2 transition">Hapus</button>
-                                    </form>
-                                </div>
+                <div class="space-y-4">
+                    @foreach ($history as $item)
+                    <div class="border border-gray-200 rounded-lg p-4 bg-gray-50 hover:bg-indigo-50 transition border-l-4 border-l-indigo-400 cursor-pointer shadow-sm hover:shadow"
+                        data-title="{{ $item->judul }}"
+                        data-original="{{ $item->original_name }}"
+                        data-filter="{{ $item->filter }}"
+                        data-date="{{ $item->waktu }}"
+                        data-file="{{ asset($item->file) }}"
+                        onclick="openAudioModal(this)">
+                        <div class="flex justify-between items-start mb-2">
+                            <div class="truncate pr-2">
+                                <div class="font-bold text-gray-800 truncate">{{ $item->judul }}</div>
+                                <div class="text-[10px] text-gray-500 truncate mt-1">{{ $item->original_name }}</div>
                             </div>
-                        @endforeach
+                            <span class="shrink-0 bg-indigo-100 text-indigo-800 text-[10px] font-bold px-2 py-1 rounded shadow-sm uppercase">
+                                {{ $item->filter }}
+                            </span>
+                        </div>
+                        <div class="text-xs text-gray-400 mb-4 font-medium">{{ $item->waktu }}</div>
+
+                        <div class="flex gap-2" onclick="event.stopPropagation();">
+                            <a href="{{ asset($item->file) }}" download="{{ $item->judul }}.mp3" class="flex-1 text-center text-indigo-600 bg-indigo-100 hover:bg-indigo-200 font-semibold rounded text-xs px-2 py-2 transition">Unduh</a>
+                            <form method="POST" action="{{ url('/delete') }}" class="flex-1" onsubmit="return confirm('Hapus file output ini secara permanen dari server?');">
+                                @csrf
+                                <input type="hidden" name="delete_id" value="{{ $item->id }}">
+                                <button type="submit" class="w-full text-red-600 bg-red-100 hover:bg-red-200 font-semibold rounded text-xs px-2 py-2 transition">Hapus</button>
+                            </form>
+                        </div>
                     </div>
+                    @endforeach
+                </div>
                 @else
-                    <div class="flex flex-col items-center justify-center h-full text-gray-400 opacity-60">
-                        <span class="text-5xl mb-4">📁</span>
-                        <p class="text-sm font-medium">Belum ada riwayat proses audio.</p>
-                    </div>
+                <div class="flex flex-col items-center justify-center h-full text-gray-400 opacity-60">
+                    <span class="text-5xl mb-4">📁</span>
+                    <p class="text-sm font-medium">Belum ada riwayat proses audio.</p>
+                </div>
                 @endif
             </div>
         </div>
@@ -269,7 +279,7 @@
         const recordIndicator = document.getElementById('recordIndicator');
         const audioInput = document.getElementById('audio');
         const judulInput = document.getElementById('judul');
-        
+
         // VARIABEL UNTUK PREVIEW
         const previewContainer = document.getElementById('previewContainer');
         const audioPreview = document.getElementById('audioPreview');
@@ -278,8 +288,10 @@
             if (!isRecording) {
                 // MULAI MEREKAM
                 try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    
+                    const stream = await navigator.mediaDevices.getUserMedia({
+                        audio: true
+                    });
+
                     mediaRecorder = new MediaRecorder(stream);
                     audioChunks = [];
 
@@ -291,11 +303,13 @@
 
                     mediaRecorder.onstop = () => {
                         // 1. Buat file
-                        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                        const audioBlob = new Blob(audioChunks, {
+                            type: 'audio/webm'
+                        });
                         const fileName = "Rekaman_Langsung_" + new Date().getTime() + ".webm";
-                        const audioFile = new File([audioBlob], fileName, { 
-                            type: 'audio/webm', 
-                            lastModified: new Date().getTime() 
+                        const audioFile = new File([audioBlob], fileName, {
+                            type: 'audio/webm',
+                            lastModified: new Date().getTime()
                         });
 
                         // 2. Masukkan ke form
@@ -309,7 +323,7 @@
                         previewContainer.classList.remove('hidden'); // Munculkan kotak pemutar
 
                         // 4. Isi judul otomatis
-                        if(judulInput.value.trim() === "") {
+                        if (judulInput.value.trim() === "") {
                             judulInput.value = "Rekaman Suara Saya";
                         }
 
@@ -327,7 +341,7 @@
                     recordBtn.classList.replace('bg-red-100', 'bg-red-600');
                     recordBtn.classList.replace('text-red-600', 'text-white');
                     recordIndicator.classList.remove('hidden');
-                    
+
                     // Sembunyikan pratinjau sebelumnya (jika ada) saat merekam ulang
                     previewContainer.classList.add('hidden');
                     audioPreview.src = "";
@@ -349,8 +363,8 @@
             if (audioInput.files.length > 0) {
                 previewContainer.classList.add('hidden');
                 audioPreview.src = "";
-                
-                if(judulInput.value === "Rekaman Suara Saya" || judulInput.value.trim() === "") {
+
+                if (judulInput.value === "Rekaman Suara Saya" || judulInput.value.trim() === "") {
                     let namaFileAsli = audioInput.files[0].name;
                     judulInput.value = namaFileAsli.substring(0, namaFileAsli.lastIndexOf('.')) || namaFileAsli;
                 }
@@ -389,4 +403,5 @@
         });
     </script>
 </body>
+
 </html>
