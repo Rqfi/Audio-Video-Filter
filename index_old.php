@@ -87,7 +87,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['audio'])) {
     $tmpName = $_FILES['audio']['tmp_name'];
     $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
 
-    $allowedExts = ['mp3', 'wav', 'ogg', 'm4a'];
+    $allowedExts = ['mp3', 'wav', 'ogg', 'm4a', 'webm'];
 
     if (in_array($ext, $allowedExts)) {
         $uniqueId = uniqid();
@@ -241,6 +241,13 @@ if (isset($_SESSION['flash_result'])) {
             -ms-overflow-style: none;
             scrollbar-width: none;
         }
+        
+        /* Animasi berkedip untuk indikator rekaman */
+        @keyframes pulse-red {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .animate-pulse-red { animation: pulse-red 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
     </style>
 </head>
 
@@ -265,15 +272,40 @@ if (isset($_SESSION['flash_result'])) {
                         class="mt-1 block w-full pl-3 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
                 </div>
 
-                <div>
-                    <label for="audio" class="block text-sm font-medium text-gray-700 mb-2">Pilih File Audio (Max 10MB)</label>
-                    <input type="file" name="audio" id="audio" accept=".mp3, .wav, .ogg, .m4a" required
-                        class="block w-full text-sm text-gray-500
+                <div class="p-4 border border-gray-200 rounded-lg bg-gray-50">
+                    <label class="block text-sm font-bold text-gray-700 mb-3">Sumber Audio (Pilih File / Rekam)</label>
+                    
+                    <div class="flex items-center gap-3 mb-4">
+                        <button type="button" id="recordBtn" class="bg-red-100 text-red-600 px-4 py-2 rounded-md text-sm font-bold hover:bg-red-200 transition flex items-center gap-2 shadow-sm border border-red-200">
+                            🎙️ Mulai Merekam
+                        </button>
+                        <span id="recordIndicator" class="text-xs text-red-600 font-bold hidden animate-pulse-red flex items-center gap-1">
+                            <span class="w-2.5 h-2.5 bg-red-600 rounded-full inline-block"></span> Merekam...
+                        </span>
+                    </div>
+
+                    <!-- AREA PRATINJAU REKAMAN -->
+                    <div id="previewContainer" class="hidden mb-4 p-3 bg-indigo-50 border border-indigo-100 rounded-md shadow-inner">
+                        <p class="text-xs font-bold text-indigo-800 mb-2">🎧 Pratinjau Rekaman Anda:</p>
+                        <audio id="audioPreview" controls class="w-full h-8 rounded-full"></audio>
+                    </div>
+
+                    <div class="relative flex items-center justify-center w-full">
+                        <div class="absolute inset-0 flex items-center" aria-hidden="true">
+                            <div class="w-full border-t border-gray-300"></div>
+                        </div>
+                        <div class="relative flex justify-center">
+                            <span class="px-2 bg-gray-50 text-xs text-gray-400">ATAU UNGGAH MANUAL</span>
+                        </div>
+                    </div>
+
+                    <input type="file" name="audio" id="audio" accept=".mp3, .wav, .ogg, .m4a, .webm" required
+                        class="mt-4 block w-full text-sm text-gray-500
                                 file:mr-4 file:py-2 file:px-4
                                 file:rounded-md file:border-0
                                 file:text-sm file:font-medium
-                                file:bg-gray-100 file:text-gray-700
-                                hover:file:bg-gray-200 cursor-pointer border border-gray-300 p-1 rounded-md">
+                                file:bg-indigo-100 file:text-indigo-700
+                                hover:file:bg-indigo-200 cursor-pointer border border-gray-300 p-1 rounded-md bg-white">
                 </div>
 
                 <div>
@@ -449,6 +481,106 @@ if (isset($_SESSION['flash_result'])) {
     </div>
 
     <script>
+        // Variabel untuk menyimpan mesin perekam dan data audionya
+        let mediaRecorder;
+        let audioChunks = [];
+        let isRecording = false;
+
+        const recordBtn = document.getElementById('recordBtn');
+        const recordIndicator = document.getElementById('recordIndicator');
+        const audioInput = document.getElementById('audio');
+        const judulInput = document.getElementById('judul');
+        
+        // --- VARIABEL BARU UNTUK PREVIEW ---
+        const previewContainer = document.getElementById('previewContainer');
+        const audioPreview = document.getElementById('audioPreview');
+
+        recordBtn.addEventListener('click', async () => {
+            if (!isRecording) {
+                // MULAI MEREKAM
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    
+                    mediaRecorder = new MediaRecorder(stream);
+                    audioChunks = [];
+
+                    mediaRecorder.ondataavailable = (event) => {
+                        if (event.data.size > 0) {
+                            audioChunks.push(event.data);
+                        }
+                    };
+
+                    mediaRecorder.onstop = () => {
+                        // 1. Buat file
+                        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                        const fileName = "Rekaman_Langsung_" + new Date().getTime() + ".webm";
+                        const audioFile = new File([audioBlob], fileName, { 
+                            type: 'audio/webm', 
+                            lastModified: new Date().getTime() 
+                        });
+
+                        // 2. Masukkan ke form
+                        const dataTransfer = new DataTransfer();
+                        dataTransfer.items.add(audioFile);
+                        audioInput.files = dataTransfer.files;
+
+                        // 3. TAMPILKAN PRATINJAU (Preview)
+                        const audioUrl = URL.createObjectURL(audioBlob);
+                        audioPreview.src = audioUrl;
+                        previewContainer.classList.remove('hidden'); // Munculkan kotak pemutar
+
+                        // 4. Isi judul otomatis
+                        if(judulInput.value.trim() === "") {
+                            judulInput.value = "Rekaman Suara Saya";
+                        }
+
+                        // Reset tombol
+                        recordBtn.innerHTML = "🔄 Rekam Ulang";
+                        recordBtn.classList.replace('bg-red-600', 'bg-red-100');
+                        recordBtn.classList.replace('text-white', 'text-red-600');
+                        recordIndicator.classList.add('hidden');
+                    };
+
+                    mediaRecorder.start();
+                    isRecording = true;
+
+                    recordBtn.innerHTML = "⏹️ Hentikan Rekaman";
+                    recordBtn.classList.replace('bg-red-100', 'bg-red-600');
+                    recordBtn.classList.replace('text-red-600', 'text-white');
+                    recordIndicator.classList.remove('hidden');
+                    
+                    // Sembunyikan pratinjau sebelumnya (jika ada) saat merekam ulang
+                    previewContainer.classList.add('hidden');
+                    audioPreview.src = "";
+
+                } catch (err) {
+                    alert("Akses mikrofon ditolak atau perangkat tidak ditemukan.");
+                    console.error("Mic error:", err);
+                }
+            } else {
+                // BERHENTI MEREKAM
+                mediaRecorder.stop();
+                isRecording = false;
+                mediaRecorder.stream.getTracks().forEach(track => track.stop());
+            }
+        });
+
+        // Logika Tambahan: Sembunyikan preview jika pengguna memilih file manual
+        audioInput.addEventListener('change', () => {
+            if (audioInput.files.length > 0) {
+                previewContainer.classList.add('hidden');
+                audioPreview.src = "";
+                
+                // Opsional: Jika judul masih "Rekaman Suara Saya", ganti dengan nama file baru
+                if(judulInput.value === "Rekaman Suara Saya" || judulInput.value.trim() === "") {
+                    // Mengambil nama file tanpa ekstensi untuk dijadikan judul
+                    let namaFileAsli = audioInput.files[0].name;
+                    judulInput.value = namaFileAsli.substring(0, namaFileAsli.lastIndexOf('.')) || namaFileAsli;
+                }
+            }
+        });
+
+        // --- Logika Modal Pop-up (Tetap) ---
         function openAudioModal(element) {
             const title = element.getAttribute('data-title');
             const original = element.getAttribute('data-original');
@@ -470,18 +602,14 @@ if (isset($_SESSION['flash_result'])) {
 
         function closeAudioModal() {
             document.getElementById('audioModal').classList.add('hidden');
-
             const audioEl = document.getElementById('modalAudio');
             audioEl.pause();
             audioEl.currentTime = 0;
         }
 
         document.getElementById('audioModal').addEventListener('click', function(e) {
-            if (e.target === this) {
-                closeAudioModal();
-            }
+            if (e.target === this) closeAudioModal();
         });
     </script>
 </body>
-
 </html>
