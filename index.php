@@ -6,6 +6,7 @@ $outputMessage = '';
 $outputFileUrl = '';
 $pesanDinamis = '';
 $avatarUrl = '';
+$outputType = 'audio';
 
 if (!isset($_SESSION['history'])) {
     $_SESSION['history'] = [];
@@ -70,6 +71,171 @@ if (!is_dir($uploadDir)) {
     mkdir($uploadDir, 0777, true);
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['video'])) {
+    $audioFilterInput = $_POST['audio_filter'] ?? 'none';
+    $videoFilterInput = $_POST['video_filter'] ?? 'none';
+    $judulVideo = $_POST['judul'] ?? '';
+
+    if (trim($judulVideo) === '') {
+        $judulFinal = 'Video Tanpa Judul';
+    } else {
+        $judulFinal = ucwords(trim($judulVideo));
+    }
+
+    $avatarUrl = "https://api.dicebear.com/9.x/bottts/svg?seed=" . urlencode($judulFinal);
+
+    $originalName = basename($_FILES['video']['name']);
+    $tmpName = $_FILES['video']['tmp_name'];
+    $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+
+    $allowedExts = ['mp4', 'mov', 'avi', 'mkv', 'webm'];
+
+    if (in_array($ext, $allowedExts)) {
+        $uniqueId = uniqid('vid_');
+        $inputFile = $uploadDir . $uniqueId . '_input.' . $ext;
+        $outputFile = $uploadDir . $uniqueId . '_output.mp4';
+
+        if (move_uploaded_file($tmpName, $inputFile)) {
+
+            // Menjalankan perintah FFmpeg
+            $ffmpegCmd = "C:\\ffmpeg\\bin\\ffmpeg.exe -y -i " . escapeshellarg($inputFile);
+            $audioCmd = "-c:a copy";
+            $videoCmd = "-c:v copy";
+
+            // -- FILTER AUDIO --
+            switch ($audioFilterInput) {
+                case 'chipmunk':
+                    $audioCmd = "-af \"asetrate=44100*1.5,aresample=44100,atempo=1/1.5\"";
+                    break;
+                case 'monster':
+                    $audioCmd = "-af \"asetrate=44100*0.7,aresample=44100,atempo=1/0.7\"";
+                    break;
+                case 'vader':
+                    $audioCmd = "-af \"asetrate=44100*0.8,aresample=44100,atempo=1/0.8,flanger=delay=5:depth=2\"";
+                    break;
+                case 'robot':
+                    $audioCmd = "-af \"aecho=0.8:0.88:6:0.4\"";
+                    break;
+                case 'radio':
+                    $audioCmd = "-af \"highpass=f=200,lowpass=f=3000\"";
+                    break;
+                case 'echo':
+                    $audioCmd = "-af \"aecho=0.8:0.9:1000:0.3\"";
+                    break;
+                case 'alien':
+                    $audioCmd = "-af \"vibrato=f=10.0:d=0.8,flanger\"";
+                    break;
+                case 'ghost':
+                    $audioCmd = "-af \"vibrato=f=3.0:d=0.8,aecho=0.8:0.9:1000:0.5,asetrate=44100*0.8,aresample=44100,atempo=1/0.8\"";
+                    break;
+                case 'underwater':
+                    $audioCmd = "-af \"lowpass=f=300,aecho=0.8:0.9:1000:0.3\"";
+                    break;
+                case 'muffled':
+                    $audioCmd = "-af \"lowpass=f=400,volume=0.8\"";
+                    break;
+                case 'nightcore':
+                    $audioCmd = "-af \"asetrate=44100*1.25,aresample=44100,atempo=1.2\"";
+                    break;
+                case 'slowmo':
+                    $audioCmd = "-af \"atempo=0.6\"";
+                    break;
+                case 'telephone':
+                    $audioCmd = "-af \"highpass=f=400,lowpass=f=2000,volume=1.5\"";
+                    break;
+                case 'megaphone':
+                    $audioCmd = "-af \"highpass=f=500,lowpass=f=3000,volume=3.0\"";
+                    break;
+                case 'concert':
+                    $audioCmd = "-af \"aecho=0.8:0.88:60:0.4,aecho=0.8:0.88:100:0.3\"";
+                    break;
+                case '8bit':
+                    $audioCmd = "-af \"aformat=sample_fmts=u8,aresample=8000\"";
+                    break;
+            }
+
+            // -- FILTER VIDEO --
+            $videoFilters = [];
+            switch ($videoFilterInput) {
+                case 'grayscale':
+                    $videoFilters[] = "format=gray";
+                    break;
+                case 'sepia':
+                    $videoFilters[] = "colorchannelmixer=.393:.769:.189:0:.349:.686:.168:0:.272:.534:.131";
+                    break;
+                case 'invert':
+                    $videoFilters[] = "negate";
+                    break;
+                case 'blur':
+                    $videoFilters[] = "boxblur=5:1";
+                    break;
+                case 'vintage':
+                    $videoFilters[] = "curves=vintage,noise=alls=20:allf=t+u";
+                    break;
+            }
+
+            // Penyesuaian durasi video agar sinkron dengan audio yang dipercepat/diperlambat
+            if ($audioFilterInput === 'nightcore') {
+                $videoFilters[] = "setpts=(1/1.5)*PTS"; // Mempercepat video 1.5x
+            } elseif ($audioFilterInput === 'slowmo') {
+                $videoFilters[] = "setpts=(1/0.6)*PTS"; // Memperlambat video menjadi 0.6x
+            }
+
+            if (count($videoFilters) > 0) {
+                $videoCmd = "-vf \"" . implode(",", $videoFilters) . "\"";
+            } else {
+                $videoCmd = "-c:v copy";
+            }
+
+            $cmd = "$ffmpegCmd $videoCmd $audioCmd " . escapeshellarg($outputFile) . " 2>&1";
+            exec($cmd, $output, $returnCode);
+
+            if ($returnCode !== 0) {
+                echo "<h3>Command Video gagal:</h3> <pre>$cmd</pre><pre>";
+                print_r($output);
+                echo "</pre>";
+                die();
+            }
+
+            if ($returnCode === 0 && file_exists($outputFile)) {
+                @unlink($inputFile);
+
+                $_SESSION['history'][] = [
+                    'id' => $uniqueId,
+                    'judul' => $judulFinal,
+                    'filter' => "Video: $videoFilterInput | Audio: $audioFilterInput",
+                    'file' => $outputFile,
+                    'waktu' => date('d M Y, H:i'),
+                    'original_name' => $originalName,
+                    'type' => 'video'
+                ];
+
+                $_SESSION['flash_result'] = [
+                    'status' => 'success',
+                    'pesan' => "Video <strong>{$judulFinal}</strong> berhasil diproses.",
+                    'output_msg' => "<span class='text-green-600'>Video berhasil diproses! 🎉</span>",
+                    'file_url' => $outputFile,
+                    'avatar' => $avatarUrl,
+                    'judul' => $judulFinal,
+                    'type' => 'video'
+                ];
+            } else {
+                $_SESSION['flash_result'] = [
+                    'status' => 'error',
+                    'output_msg' => "<span class='text-red-600'>Gagal memproses video.</span>"
+                ];
+            }
+        }
+    } else {
+        $_SESSION['flash_result'] = [
+            'status' => 'error',
+            'output_msg' => "<span class='text-red-600'>Format video tidak didukung.</span>"
+        ];
+    }
+    header("Location: " . $_SERVER['PHP_SELF']);
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['audio'])) {
     $filter = $_POST['filter'] ?? 'none';
 
@@ -87,7 +253,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['audio'])) {
     $tmpName = $_FILES['audio']['tmp_name'];
     $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
 
-    $allowedExts = ['mp3', 'wav', 'ogg', 'm4a'];
+    $allowedExts = ['mp3', 'wav', 'ogg', 'm4a', 'webm'];
 
     if (in_array($ext, $allowedExts)) {
         $uniqueId = uniqid();
@@ -218,6 +384,7 @@ if (isset($_SESSION['flash_result'])) {
         $outputFileUrl = $_SESSION['flash_result']['file_url'] ?? '';
         $avatarUrl = $_SESSION['flash_result']['avatar'] ?? '';
         $outputFileJudul = $_SESSION['flash_result']['judul'] ?? 'Audio_Filter';
+        $outputType = $_SESSION['flash_result']['type'] ?? 'audio';
     }
     // Hapus session
     unset($_SESSION['flash_result']);
@@ -241,39 +408,97 @@ if (isset($_SESSION['flash_result'])) {
             -ms-overflow-style: none;
             scrollbar-width: none;
         }
+
+        @keyframes pulse-red {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .animate-pulse-red {
+            animation: pulse-red 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
     </style>
 </head>
 
 <body class="bg-gray-100 min-h-screen p-4 py-8 font-sans">
-    <div class="max-w-[90rem] mx-auto mb-8">
-        <h1 class="text-3xl font-bold text-gray-800 text-center">Audio Filter</h1>
-        <p class="text-sm text-gray-500 text-center mt-2">Diproses di server menggunakan PHP & FFmpeg</p>
+    <div class="max-w-[90rem] mx-auto mb-8 relative flex flex-col md:flex-row items-center justify-between">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-800">Audio & Video Filter</h1>
+            <p class="text-sm text-gray-500 mt-2">Filter rekaman suara dan video</p>
+        </div>
+
+        <div class="flex flex-row gap-2">
+            <a href="voice-changer.php" class="mt-4 md:mt-0 bg-gradient-to-r from-rose-500 to-red-500 text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5 flex items-center gap-2 font-bold text-sm border-b-4 border-red-700">
+                Voice Changer
+            </a>
+            <a href="camera-filter.php" class="mt-4 md:mt-0 bg-gradient-to-r from-emerald-500 to-green-500 text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5 flex items-center gap-2 font-bold text-sm border-b-4 border-green-700">
+                Camera Filter
+            </a>
+        </div>
     </div>
 
     <div class="max-w-[90rem] mx-auto w-full grid grid-cols-1 lg:grid-cols-3 gap-6 h-auto lg:h-[75vh]">
 
         <div class="bg-white rounded-xl shadow-lg p-6 flex flex-col h-full overflow-y-auto no-scrollbar border-t-4 border-indigo-500">
-            <h2 class="text-lg font-bold text-gray-800 mb-6 border-b pb-3 flex items-center">
+            <h2 class="text-lg font-bold text-gray-800 mb-2 border-b pb-3 flex items-center">
                 <span class="bg-indigo-100 text-indigo-700 w-8 h-8 rounded-full flex items-center justify-center mr-3">1</span>
                 Input Variabel
             </h2>
 
-            <form action="" method="POST" enctype="multipart/form-data" class="space-y-6 flex-1">
+            <!-- TABS -->
+            <div class="flex space-x-2 mb-4 border-b border-gray-200">
+                <button id="tabAudio" class="py-2 px-4 border-b-2 border-indigo-600 font-bold text-indigo-600 focus:outline-none" onclick="switchTab('audio')">🎵 Audio</button>
+                <button id="tabVideo" class="py-2 px-4 border-b-2 border-transparent font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300 transition focus:outline-none" onclick="switchTab('video')">🎞️ Video</button>
+            </div>
+
+            <!-- TAB 1: FORM AUDIO -->
+            <form id="formAudio" action="" method="POST" enctype="multipart/form-data" class="space-y-6 flex-1">
                 <div>
                     <label for="judul" class="block text-sm font-medium text-gray-700 mb-2">Judul Audio</label>
                     <input type="text" name="judul" id="judul" placeholder="Masukkan judul audio..."
                         class="mt-1 block w-full pl-3 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
                 </div>
 
-                <div>
-                    <label for="audio" class="block text-sm font-medium text-gray-700 mb-2">Pilih File Audio (Max 10MB)</label>
-                    <input type="file" name="audio" id="audio" accept=".mp3, .wav, .ogg, .m4a" required
-                        class="block w-full text-sm text-gray-500
+                <div class="p-4 border border-gray-200 rounded-lg bg-gray-50">
+                    <label class="block text-sm font-bold text-gray-700 mb-3">Sumber Audio (Pilih File / Rekam)</label>
+
+                    <div class="flex items-center gap-3 mb-4">
+                        <button type="button" id="recordBtn" class="bg-red-100 text-red-600 px-4 py-2 rounded-md text-sm font-bold hover:bg-red-200 transition flex items-center gap-2 shadow-sm border border-red-200">
+                            🎙️ Mulai Merekam
+                        </button>
+                        <span id="recordIndicator" class="text-xs text-red-600 font-bold hidden animate-pulse-red flex items-center gap-1">
+                            <span class="w-2.5 h-2.5 bg-red-600 rounded-full inline-block"></span> Merekam...
+                        </span>
+                    </div>
+
+                    <div id="previewContainer" class="hidden mb-4 p-3 bg-indigo-50 border border-indigo-100 rounded-md shadow-inner">
+                        <p class="text-xs font-bold text-indigo-800 mb-2">🎧 Pratinjau Rekaman Anda:</p>
+                        <audio id="audioPreview" controls class="w-full h-8 rounded-full"></audio>
+                    </div>
+
+                    <div class="relative flex items-center justify-center w-full">
+                        <div class="absolute inset-0 flex items-center" aria-hidden="true">
+                            <div class="w-full border-t border-gray-300"></div>
+                        </div>
+                        <div class="relative flex justify-center">
+                            <span class="px-2 bg-gray-50 text-xs text-gray-400">ATAU UNGGAH MANUAL</span>
+                        </div>
+                    </div>
+
+                    <input type="file" name="audio" id="audio" accept=".mp3, .wav, .ogg, .m4a, .webm" required
+                        class="mt-4 block w-full text-sm text-gray-500
                                 file:mr-4 file:py-2 file:px-4
                                 file:rounded-md file:border-0
                                 file:text-sm file:font-medium
-                                file:bg-gray-100 file:text-gray-700
-                                hover:file:bg-gray-200 cursor-pointer border border-gray-300 p-1 rounded-md">
+                                file:bg-indigo-100 file:text-indigo-700
+                                hover:file:bg-indigo-200 cursor-pointer border border-gray-300 p-1 rounded-md bg-white">
                 </div>
 
                 <div>
@@ -301,10 +526,92 @@ if (isset($_SESSION['flash_result'])) {
 
                 <div class="pt-4 mt-auto">
                     <button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition">
-                        Submit
+                        Submit Audio
                     </button>
                 </div>
             </form>
+
+            <!-- TAB 2: FORM VIDEO -->
+            <form id="formVideo" action="" method="POST" enctype="multipart/form-data" class="space-y-6 flex-1 hidden">
+                <div>
+                    <label for="judul_video" class="block text-sm font-medium text-gray-700 mb-2">Judul Video</label>
+                    <input type="text" name="judul" id="judul_video" placeholder="Masukkan judul video..."
+                        class="mt-1 block w-full pl-3 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+                </div>
+
+                <div class="p-4 border border-gray-200 rounded-lg bg-gray-50">
+                    <label class="block text-sm font-bold text-gray-700 mb-3">Sumber Video (Unggah Manual)</label>
+                    <input type="file" name="video" id="video" accept=".mp4, .mov, .avi, .mkv, .webm" required
+                        class="block w-full text-sm text-gray-500
+                                file:mr-4 file:py-2 file:px-4
+                                file:rounded-md file:border-0
+                                file:text-sm file:font-medium
+                                file:bg-indigo-100 file:text-indigo-700
+                                hover:file:bg-indigo-200 cursor-pointer border border-gray-300 p-1 rounded-md bg-white">
+                </div>
+
+                <div>
+                    <label for="filter_suara_video" class="block text-sm font-medium text-gray-700 mb-2">Pilih Efek Suara</label>
+                    <select name="audio_filter" id="filter_suara_video" class="mt-1 block w-full pl-3 pr-8 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+                        <option value="none">Asli (Tanpa Efek)</option>
+                        <option value="chipmunk">🐿️ Suara Tupai</option>
+                        <option value="monster">🧟 Suara Monster</option>
+                        <option value="vader">🦹 Suara Penjahat (Vader)</option>
+                        <option value="robot">🤖 Suara Robot</option>
+                        <option value="alien">👽 Suara Alien</option>
+                        <option value="ghost">👻 Suara Hantu / Seram</option>
+                        <option value="radio">📻 Suara Radio Lama</option>
+                        <option value="telephone">📞 Telepon Terkompresi</option>
+                        <option value="megaphone">📣 Suara Megaphone (Toa)</option>
+                        <option value="echo">⛰️ Suara Menggema di Gua</option>
+                        <option value="concert">🏟️ Suara Konser / Aula Besar</option>
+                        <option value="underwater">🫧 Di Bawah Air</option>
+                        <option value="muffled">🚪 Suara Teredam (Di Balik Pintu)</option>
+                        <option value="nightcore">⚡ Musik Nightcore</option>
+                        <option value="slowmo">🐢 Slow Motion</option>
+                        <option value="8bit">👾 Suara 8-Bit / Retro Game</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label for="filter_video" class="block text-sm font-medium text-gray-700 mb-2">Pilih Efek Video</label>
+                    <select name="video_filter" id="filter_video" class="mt-1 block w-full pl-3 pr-8 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+                        <option value="none">Asli (Tanpa Efek)</option>
+                        <option value="grayscale">Hitam Putih (Grayscale)</option>
+                        <option value="sepia">Sepia (Jadul)</option>
+                        <option value="invert">Invert Colors (Negatif)</option>
+                        <option value="blur">Blur</option>
+                        <option value="vintage">Vintage / Old Film</option>
+                    </select>
+                </div>
+
+                <div class="pt-4 mt-auto">
+                    <button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition">
+                        Submit Video
+                    </button>
+                </div>
+            </form>
+
+            <script>
+                function switchTab(tab) {
+                    const btnAudio = document.getElementById('tabAudio');
+                    const btnVideo = document.getElementById('tabVideo');
+                    const formAudio = document.getElementById('formAudio');
+                    const formVideo = document.getElementById('formVideo');
+
+                    if (tab === 'audio') {
+                        btnAudio.className = "py-2 px-4 border-b-2 border-indigo-600 font-bold text-indigo-600 focus:outline-none";
+                        btnVideo.className = "py-2 px-4 border-b-2 border-transparent font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300 transition focus:outline-none";
+                        formAudio.classList.remove('hidden');
+                        formVideo.classList.add('hidden');
+                    } else {
+                        btnVideo.className = "py-2 px-4 border-b-2 border-indigo-600 font-bold text-indigo-600 focus:outline-none";
+                        btnAudio.className = "py-2 px-4 border-b-2 border-transparent font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300 transition focus:outline-none";
+                        formVideo.classList.remove('hidden');
+                        formAudio.classList.add('hidden');
+                    }
+                }
+            </script>
         </div>
 
         <div class="bg-white rounded-xl shadow-lg p-6 flex flex-col h-full overflow-y-auto no-scrollbar border-t-4 border-green-500 bg-gradient-to-b from-white to-gray-50">
@@ -329,19 +636,29 @@ if (isset($_SESSION['flash_result'])) {
                         <p class="text-center text-sm font-medium mb-5"><?php echo $outputMessage; ?></p>
 
                         <?php if ($outputFileUrl !== ''): ?>
-                            <audio controls class="w-full mb-5 shadow-sm rounded-full">
-                                <source src="<?php echo $outputFileUrl; ?>" type="audio/mpeg">
-                                Browser Anda tidak mendukung elemen audio.
-                            </audio>
-                            <a href="<?php echo $outputFileUrl; ?>" download="<?php echo htmlspecialchars($outputFileJudul); ?>.mp3" class="w-full flex justify-center py-3 px-4 rounded-md shadow-md text-sm font-bold text-white bg-green-600 hover:bg-green-700 transition">
-                                Download File Output
-                            </a>
+                            <?php if ($outputType === 'video'): ?>
+                                <video controls class="w-full mb-5 shadow-sm rounded-lg border border-gray-200 bg-black">
+                                    <source src="<?php echo $outputFileUrl; ?>" type="video/mp4">
+                                    Browser Anda tidak mendukung elemen video.
+                                </video>
+                                <a href="<?php echo $outputFileUrl; ?>" download="<?php echo htmlspecialchars($outputFileJudul); ?>.mp4" class="w-full flex justify-center py-3 px-4 rounded-md shadow-md text-sm font-bold text-white bg-green-600 hover:bg-green-700 transition">
+                                    Download Video Output
+                                </a>
+                            <?php else: ?>
+                                <audio controls class="w-full mb-5 shadow-sm rounded-full">
+                                    <source src="<?php echo $outputFileUrl; ?>" type="audio/mpeg">
+                                    Browser Anda tidak mendukung elemen audio.
+                                </audio>
+                                <a href="<?php echo $outputFileUrl; ?>" download="<?php echo htmlspecialchars($outputFileJudul); ?>.mp3" class="w-full flex justify-center py-3 px-4 rounded-md shadow-md text-sm font-bold text-white bg-green-600 hover:bg-green-700 transition">
+                                    Download Audio Output
+                                </a>
+                            <?php endif; ?>
                         <?php endif; ?>
                     </div>
                 <?php else: ?>
                     <div class="flex flex-col items-center text-gray-400 opacity-60">
                         <span class="text-6xl mb-4">📼</span>
-                        <p class="text-sm font-medium text-center">Menunggu input.<br>Hasil audio akan muncul di sini.</p>
+                        <p class="text-sm font-medium text-center">Menunggu input.<br>Hasil akan muncul di sini.</p>
                     </div>
                 <?php endif; ?>
             </div>
@@ -384,6 +701,7 @@ if (isset($_SESSION['flash_result'])) {
                                 data-filter="<?php echo htmlspecialchars($item['filter']); ?>"
                                 data-date="<?php echo $item['waktu']; ?>"
                                 data-file="<?php echo $item['file']; ?>"
+                                data-type="<?php echo $item['type'] ?? 'audio'; ?>"
                                 onclick="openAudioModal(this)">
                                 <div class="flex justify-between items-start mb-2">
                                     <div class="truncate pr-2">
@@ -397,7 +715,7 @@ if (isset($_SESSION['flash_result'])) {
                                 <div class="text-xs text-gray-400 mb-4 font-medium"><?php echo $item['waktu']; ?></div>
 
                                 <div class="flex gap-2" onclick="event.stopPropagation();">
-                                    <a href="<?php echo $item['file']; ?>" download="<?php echo htmlspecialchars($item['judul'] ?? 'Audio_Filter'); ?>.mp3" class="flex-1 text-center text-indigo-600 bg-indigo-100 hover:bg-indigo-200 font-semibold rounded text-xs px-2 py-2 transition">Unduh</a>
+                                    <a href="<?php echo $item['file']; ?>" download="<?php echo htmlspecialchars($item['judul'] ?? 'Audio_Filter'); ?><?php echo (isset($item['type']) && $item['type'] === 'video') ? '.mp4' : '.mp3'; ?>" class="flex-1 text-center text-indigo-600 bg-indigo-100 hover:bg-indigo-200 font-semibold rounded text-xs px-2 py-2 transition">Unduh</a>
                                     <form method="POST" action="" class="flex-1" onsubmit="return confirm('Hapus file output ini secara permanen dari server?');">
                                         <input type="hidden" name="action" value="delete">
                                         <input type="hidden" name="delete_id" value="<?php echo $item['id']; ?>">
@@ -410,7 +728,7 @@ if (isset($_SESSION['flash_result'])) {
                 <?php else: ?>
                     <div class="flex flex-col items-center justify-center h-full text-gray-400 opacity-60">
                         <span class="text-5xl mb-4">📁</span>
-                        <p class="text-sm font-medium">Belum ada riwayat proses audio.</p>
+                        <p class="text-sm font-medium">Belum ada riwayat proses.</p>
                     </div>
                 <?php endif; ?>
             </div>
@@ -419,13 +737,13 @@ if (isset($_SESSION['flash_result'])) {
     </div>
 
     <div id="audioModal" class="fixed inset-0 bg-gray-900/60 hidden flex items-center justify-center z-50 transition-opacity backdrop-blur-sm px-4">
-        <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full relative transform transition-all">
-            <button onclick="closeAudioModal()" class="absolute top-4 right-4 text-gray-400 hover:text-red-500 bg-gray-100 hover:bg-red-50 rounded-full w-8 h-8 flex items-center justify-center transition font-bold">
+        <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-3xl w-full relative transform transition-all">
+            <button onclick="closeAudioModal()" class="absolute top-4 right-4 text-gray-400 hover:text-red-500 bg-gray-100 hover:bg-red-50 rounded-full w-8 h-8 flex items-center justify-center transition font-bold z-10">
                 &times;
             </button>
 
             <div class="flex items-center gap-3 mb-4 pr-6">
-                <div class="w-12 h-12 rounded-full bg-indigo-100 text-indigo-500 flex items-center justify-center text-2xl shrink-0 shadow-inner">
+                <div id="modalIcon" class="w-12 h-12 rounded-full bg-indigo-100 text-indigo-500 flex items-center justify-center text-2xl shrink-0 shadow-inner">
                     🎵
                 </div>
                 <div class="overflow-hidden">
@@ -445,43 +763,15 @@ if (isset($_SESSION['flash_result'])) {
                 <source src="" type="audio/mpeg">
                 Browser Anda tidak mendukung elemen audio.
             </audio>
+
+            <video id="modalVideo" controls class="w-full shadow-sm rounded-lg bg-black hidden mt-3">
+                <source src="" type="video/mp4">
+                Browser Anda tidak mendukung elemen video.
+            </video>
         </div>
     </div>
 
-    <script>
-        function openAudioModal(element) {
-            const title = element.getAttribute('data-title');
-            const original = element.getAttribute('data-original');
-            const filter = element.getAttribute('data-filter');
-            const date = element.getAttribute('data-date');
-            const fileUrl = element.getAttribute('data-file');
-
-            document.getElementById('modalTitle').innerText = title;
-            document.getElementById('modalOriginal').innerText = '📁 Asli: ' + original;
-            document.getElementById('modalFilter').innerText = filter;
-            document.getElementById('modalDate').innerText = date;
-
-            const audioEl = document.getElementById('modalAudio');
-            audioEl.src = fileUrl;
-            audioEl.load();
-
-            document.getElementById('audioModal').classList.remove('hidden');
-        }
-
-        function closeAudioModal() {
-            document.getElementById('audioModal').classList.add('hidden');
-
-            const audioEl = document.getElementById('modalAudio');
-            audioEl.pause();
-            audioEl.currentTime = 0;
-        }
-
-        document.getElementById('audioModal').addEventListener('click', function(e) {
-            if (e.target === this) {
-                closeAudioModal();
-            }
-        });
-    </script>
+    <script src="js/audio-filter.js?v=<?php echo time(); ?>"></script>
 </body>
 
 </html>
