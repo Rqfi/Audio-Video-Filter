@@ -107,7 +107,30 @@
                 </div>
 
                 <div class="p-4 border border-gray-200 rounded-lg bg-gray-50">
-                    <label class="block text-sm font-bold text-gray-700 mb-3">Sumber Audio (Unggah Manual)</label>
+                    <label class="block text-sm font-bold text-gray-700 mb-3">Sumber Audio (Pilih File / Rekam)</label>
+
+                    <div class="flex items-center gap-3 mb-4">
+                        <button type="button" id="recordBtn" class="bg-red-100 text-red-600 px-4 py-2 rounded-md text-sm font-bold hover:bg-red-200 transition flex items-center gap-2 shadow-sm border border-red-200">
+                            🎙️ Mulai Merekam
+                        </button>
+                        <span id="recordIndicator" class="text-xs text-red-600 font-bold hidden animate-pulse-red flex items-center gap-1">
+                            <span class="w-2.5 h-2.5 bg-red-600 rounded-full inline-block"></span> Merekam...
+                        </span>
+                    </div>
+
+                    <div id="previewContainer" class="hidden mb-4 p-3 bg-indigo-50 border border-indigo-100 rounded-md shadow-inner">
+                        <p class="text-xs font-bold text-indigo-800 mb-2">🎧 Pratinjau Rekaman Anda:</p>
+                        <audio id="audioPreview" controls class="w-full h-8 rounded-full"></audio>
+                    </div>
+
+                    <div class="relative flex items-center justify-center w-full">
+                        <div class="absolute inset-0 flex items-center" aria-hidden="true">
+                            <div class="w-full border-t border-gray-300"></div>
+                        </div>
+                        <div class="relative flex justify-center">
+                            <span class="px-2 bg-gray-50 text-xs text-gray-400">ATAU UNGGAH MANUAL</span>
+                        </div>
+                    </div>
 
                     <input type="file" id="audio" accept=".mp3, .wav, .ogg, .m4a, .webm" required
                         class="mt-4 block w-full text-sm text-gray-500
