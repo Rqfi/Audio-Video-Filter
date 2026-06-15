@@ -23,8 +23,7 @@ async function loadFFmpeg() {
         // Memuat engine secara LOKAL untuk memastikan 100% bebas dari blokir CORS/CSP
         await ffmpeg.load({
             coreURL: 'js/ffmpeg-core.js',
-            wasmURL: 'js/ffmpeg-core.wasm',
-            classWorkerURL: 'js/814.ffmpeg.js'
+            wasmURL: 'js/ffmpeg-core.wasm'
         });
 
         isReady = true;
