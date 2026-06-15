@@ -36,7 +36,14 @@ async function loadFFmpeg() {
         
     } catch (e) {
         console.error("Gagal memuat FFmpeg", e);
-        document.getElementById('ffmpegStatusText').innerHTML = "<span class='text-red-600'>Gagal memuat engine FFmpeg. Pastikan koneksi internet stabil.</span>";
+        document.getElementById('ffmpegStatusText').innerHTML = `<span class='text-red-600'>Gagal memuat engine. Error: ${e.message || String(e)}</span>`;
+        
+        // Tampilkan error tambahan ke layar jika ada stack trace
+        const errDiv = document.createElement('div');
+        errDiv.className = 'w-full max-w-[90rem] mx-auto mb-4 bg-red-100 text-red-700 text-xs p-3 overflow-auto';
+        errDiv.innerText = e.stack || String(e);
+        document.getElementById('ffmpegStatus').insertAdjacentElement('afterend', errDiv);
+        
         return false;
     }
 }
