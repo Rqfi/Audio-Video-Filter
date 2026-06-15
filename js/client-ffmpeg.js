@@ -1,5 +1,5 @@
-const { FFmpeg } = window.FFmpeg;
-const { fetchFile } = window.FFmpegUtil;
+const { FFmpeg } = window.FFmpegWASM;
+const { fetchFile, toBlobURL } = window.FFmpegUtil;
 
 let ffmpeg = null;
 let isReady = false;
@@ -20,10 +20,11 @@ async function loadFFmpeg() {
             }
         });
 
-        // Pakai versi CDN yang mendukung non-SharedArrayBuffer (versi 0.12.x single-thread-ish atau core biasa)
+        // Menggunakan toBlobURL agar script Web Worker bisa berjalan di domain Vercel (bypassing strict CORS)
+        const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd';
         await ffmpeg.load({
-            coreURL: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js',
-            wasmURL: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm'
+            coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+            wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm')
         });
 
         isReady = true;
@@ -316,3 +317,98 @@ window.closeAudioModal = function () {
     if (a) { a.pause(); a.currentTime = 0; }
     if (v) { v.pause(); v.currentTime = 0; }
 };
+
+// ==========================================
+// FITUR REKAMAN SUARA (MIC)
+// ==========================================
+let mediaRecorder;
+let audioChunks = [];
+let isRecording = false;
+
+const recordBtn = document.getElementById('recordBtn');
+const recordIndicator = document.getElementById('recordIndicator');
+const audioInput = document.getElementById('audio');
+const judulInput = document.getElementById('judul');
+const previewContainer = document.getElementById('previewContainer');
+const audioPreview = document.getElementById('audioPreview');
+
+if (recordBtn) {
+    recordBtn.addEventListener('click', async () => {
+        if (!isRecording) {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) audioChunks.push(event.data);
+                };
+
+                mediaRecorder.onstop = () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    const fileName = "Rekaman_Langsung_" + new Date().getTime() + ".webm";
+                    const audioFile = new File([audioBlob], fileName, {
+                        type: 'audio/webm',
+                        lastModified: new Date().getTime()
+                    });
+
+                    // Gunakan DataTransfer untuk memasukkan file ke input type="file"
+                    const dataTransfer = new DataTransfer();
+                    dataTransfer.items.add(audioFile);
+                    audioInput.files = dataTransfer.files;
+
+                    // Buat pratinjau
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    audioPreview.src = audioUrl;
+                    previewContainer.classList.remove('hidden');
+
+                    // Isi judul otomatis jika kosong
+                    if (judulInput.value.trim() === "") {
+                        judulInput.value = "Rekaman Suara Saya";
+                    }
+
+                    // Kembalikan tombol ke mode awal
+                    recordBtn.innerHTML = "🔄 Rekam Ulang";
+                    recordBtn.classList.replace('bg-red-600', 'bg-red-100');
+                    recordBtn.classList.replace('text-white', 'text-red-600');
+                    recordIndicator.classList.add('hidden');
+                };
+
+                mediaRecorder.start();
+                isRecording = true;
+
+                // Ubah tampilan tombol saat merekam
+                recordBtn.innerHTML = "⏹️ Hentikan Rekaman";
+                recordBtn.classList.replace('bg-red-100', 'bg-red-600');
+                recordBtn.classList.replace('text-red-600', 'text-white');
+                recordIndicator.classList.remove('hidden');
+
+                // Sembunyikan pratinjau sebelumnya jika ada
+                previewContainer.classList.add('hidden');
+                audioPreview.src = "";
+
+            } catch (err) {
+                alert("Akses mikrofon ditolak atau perangkat tidak ditemukan. Cek pengaturan browser Anda.");
+                console.error("Mic error:", err);
+            }
+        } else {
+            mediaRecorder.stop();
+            isRecording = false;
+            mediaRecorder.stream.getTracks().forEach(track => track.stop());
+        }
+    });
+}
+
+// Reset judul otomatis jika file manual dipilih
+if (audioInput) {
+    audioInput.addEventListener('change', () => {
+        if (audioInput.files.length > 0) {
+            previewContainer.classList.add('hidden');
+            audioPreview.src = "";
+            if (judulInput.value === "Rekaman Suara Saya" || judulInput.value.trim() === "") {
+                let namaFileAsli = audioInput.files[0].name;
+                judulInput.value = namaFileAsli.substring(0, namaFileAsli.lastIndexOf('.')) || namaFileAsli;
+            }
+        }
+    });
+}
