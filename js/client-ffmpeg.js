@@ -20,14 +20,11 @@ async function loadFFmpeg() {
             }
         });
 
-        // Menggunakan unpkg.com karena lebih stabil untuk file WebAssembly Emscripten
-        const coreURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
-        const ffmpegURL = 'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd';
-        
+        // Memuat engine secara LOKAL untuk memastikan 100% bebas dari blokir CORS/CSP
         await ffmpeg.load({
-            coreURL: await toBlobURL(`${coreURL}/ffmpeg-core.js`, 'text/javascript'),
-            wasmURL: await toBlobURL(`${coreURL}/ffmpeg-core.wasm`, 'application/wasm'),
-            classWorkerURL: await toBlobURL(`${ffmpegURL}/814.ffmpeg.js`, 'text/javascript')
+            coreURL: 'js/ffmpeg-core.js',
+            wasmURL: 'js/ffmpeg-core.wasm',
+            classWorkerURL: 'js/814.ffmpeg.js'
         });
 
         isReady = true;
