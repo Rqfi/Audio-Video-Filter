@@ -20,11 +20,14 @@ async function loadFFmpeg() {
             }
         });
 
-        // Menggunakan toBlobURL agar script Web Worker bisa berjalan di domain Vercel (bypassing strict CORS)
-        const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd';
+        // Menggunakan toBlobURL agar script Web Worker bisa berjalan di domain Vercel (bypassing strict CORS & 404 pathing)
+        const coreURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd';
+        const ffmpegURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.6/dist/umd';
+        
         await ffmpeg.load({
-            coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-            wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm')
+            coreURL: await toBlobURL(`${coreURL}/ffmpeg-core.js`, 'text/javascript'),
+            wasmURL: await toBlobURL(`${coreURL}/ffmpeg-core.wasm`, 'application/wasm'),
+            workerURL: await toBlobURL(`${ffmpegURL}/814.ffmpeg.js`, 'text/javascript')
         });
 
         isReady = true;
