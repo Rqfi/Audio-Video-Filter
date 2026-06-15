@@ -5,6 +5,88 @@ let ffmpeg = null;
 let isReady = false;
 let sessionHistory = [];
 
+// ==========================================
+// PERSISTENSI DATA DENGAN INDEXEDDB
+// ==========================================
+const DB_NAME = 'AVFilterDB';
+const STORE_NAME = 'historyStore';
+
+function initDB() {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, 1);
+        request.onupgradeneeded = (e) => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains(STORE_NAME)) {
+                db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+            }
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+    });
+}
+
+async function saveToDB(item) {
+    const db = await initDB();
+    // Mengambil file asli dari blob url yang baru saja di-generate
+    const response = await fetch(item.url);
+    const blob = await response.blob();
+    const itemToSave = { ...item, blob }; // Simpan blob biner aslinya
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        tx.objectStore(STORE_NAME).put(itemToSave);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+    });
+}
+
+async function loadFromDB() {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const req = tx.objectStore(STORE_NAME).getAll();
+        req.onsuccess = () => {
+            // Generate ulang Blob URL untuk sesi ini
+            const items = req.result.map(item => {
+                const newUrl = URL.createObjectURL(item.blob);
+                return { ...item, url: newUrl };
+            });
+            // Urutkan terbaru ke terlama
+            resolve(items.sort((a,b) => b.id - a.id));
+        };
+        req.onerror = () => reject(req.error);
+    });
+}
+
+async function deleteFromDB(id) {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        tx.objectStore(STORE_NAME).delete(id);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+    });
+}
+
+async function clearDB() {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        tx.objectStore(STORE_NAME).clear();
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+    });
+}
+
+// Muat riwayat saat halaman dibuka
+window.addEventListener('DOMContentLoaded', async () => {
+    try {
+        sessionHistory = await loadFromDB();
+        renderHistory();
+    } catch(e) {
+        console.error("Gagal load history dari IndexedDB", e);
+    }
+});
+
 async function loadFFmpeg() {
     if (isReady) return true;
     try {
@@ -20,8 +102,8 @@ async function loadFFmpeg() {
             }
         });
 
-        // Menggunakan toBlobURL agar script Web Worker bisa berjalan di domain Vercel (bypassing strict CORS)
-        const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd';
+        // Memuat engine secara LOKAL dengan URL absolut dan Blob agar tidak terjadi error module specifier
+        const baseURL = window.location.href.split('?')[0].replace(/\/$/, '') + '/js';
         await ffmpeg.load({
             coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
             wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm')
@@ -33,7 +115,14 @@ async function loadFFmpeg() {
         
     } catch (e) {
         console.error("Gagal memuat FFmpeg", e);
-        document.getElementById('ffmpegStatusText').innerHTML = "<span class='text-red-600'>Gagal memuat engine FFmpeg. Pastikan koneksi internet stabil.</span>";
+        document.getElementById('ffmpegStatusText').innerHTML = `<span class='text-red-600'>Gagal memuat engine. Error: ${e.message || String(e)}</span>`;
+        
+        // Tampilkan error tambahan ke layar jika ada stack trace
+        const errDiv = document.createElement('div');
+        errDiv.className = 'w-full max-w-[90rem] mx-auto mb-4 bg-red-100 text-red-700 text-xs p-3 overflow-auto';
+        errDiv.innerText = e.stack || String(e);
+        document.getElementById('ffmpegStatus').insertAdjacentElement('afterend', errDiv);
+        
         return false;
     }
 }
@@ -205,14 +294,18 @@ function getExtension(filename) {
 
 function handleSuccess(title, filter, type, originalName, url) {
     const dateStr = new Date().toLocaleString('id-ID', {day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'});
+    const id = new Date().getTime(); // Generate ID unik
     
     const historyItem = {
-        title, filter, type, originalName, url, dateStr
+        id, title, filter, type, originalName, url, dateStr
     };
     
     sessionHistory.unshift(historyItem);
     renderHistory();
     renderOutput(historyItem);
+    
+    // Simpan ke database browser secara background
+    saveToDB(historyItem).catch(err => console.error("Gagal menyimpan ke DB", err));
 }
 
 function renderOutput(item) {
@@ -246,17 +339,20 @@ function renderHistory() {
     const list = document.getElementById('historyListContainer');
     const empty = document.getElementById('emptyHistory');
     const count = document.getElementById('historyCount');
+    const actions = document.getElementById('historyActions');
 
     if (sessionHistory.length === 0) {
         list.classList.add('hidden');
         empty.classList.remove('hidden');
         count.classList.add('hidden');
+        if (actions) actions.classList.add('hidden');
         return;
     }
 
     empty.classList.add('hidden');
     list.classList.remove('hidden');
     count.classList.remove('hidden');
+    if (actions) actions.classList.remove('hidden');
     count.innerText = sessionHistory.length + ' Total';
 
     list.innerHTML = '';
@@ -279,11 +375,46 @@ function renderHistory() {
             <div class="text-xs text-gray-400 mb-4 font-medium">${item.dateStr}</div>
             <div class="flex gap-2" onclick="event.stopPropagation();">
                 <a href="${item.url}" download="${item.title}.${item.type === 'video' ? 'mp4' : 'mp3'}" class="flex-1 text-center text-indigo-600 bg-indigo-100 hover:bg-indigo-200 font-semibold rounded text-xs px-2 py-2 transition">Unduh</a>
+                <button onclick="deleteHistoryItem(${index})" title="Hapus" class="flex-none bg-red-100 text-red-600 px-3 rounded hover:bg-red-200 transition font-bold">🗑️</button>
             </div>
         `;
         list.appendChild(div);
     });
 }
+
+window.deleteHistoryItem = async function(index) {
+    if(confirm("Hapus item ini dari riwayat?")) {
+        const item = sessionHistory[index];
+        sessionHistory.splice(index, 1);
+        renderHistory();
+        if(item && item.id) {
+            await deleteFromDB(item.id);
+        }
+    }
+};
+
+window.deleteAllHistory = async function() {
+    if(confirm("Hapus seluruh riwayat sesi ini?")) {
+        sessionHistory = [];
+        renderHistory();
+        await clearDB();
+    }
+};
+
+window.downloadAllHistory = function() {
+    if(sessionHistory.length === 0) return;
+    alert("Proses pengunduhan ganda dimulai. Izinkan browser jika ada pop-up konfirmasi.");
+    sessionHistory.forEach((item, idx) => {
+        setTimeout(() => {
+            const a = document.createElement('a');
+            a.href = item.url;
+            a.download = `${item.title}.${item.type === 'video' ? 'mp4' : 'mp3'}`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }, idx * 500); // delay sedikit agar browser tidak menolak multiple download
+    });
+};
 
 function openAudioModal(item) {
     document.getElementById('modalTitle').innerText = item.title;
