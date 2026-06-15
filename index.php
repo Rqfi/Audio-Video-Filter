@@ -182,7 +182,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['video'])) {
             }
 
             if (count($videoFilters) > 0) {
-                $videoCmd = "-vf \"" . implode(",", $videoFilters) . "\"";
+                // Memastikan menggunakan codec H.264 dan piksel yuv420p agar kompatibel dengan pemutar video di semua browser
+                $videoCmd = "-c:v libx264 -pix_fmt yuv420p -vf \"" . implode(",", $videoFilters) . "\"";
             } else {
                 $videoCmd = "-c:v copy";
             }
@@ -438,9 +439,9 @@ if (isset($_SESSION['flash_result'])) {
             <a href="voice-changer.php" class="mt-4 md:mt-0 bg-gradient-to-r from-rose-500 to-red-500 text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5 flex items-center gap-2 font-bold text-sm border-b-4 border-red-700">
                 Voice Changer
             </a>
-            <a href="camera-filter.php" class="mt-4 md:mt-0 bg-gradient-to-r from-emerald-500 to-green-500 text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5 flex items-center gap-2 font-bold text-sm border-b-4 border-green-700">
+            <!-- <a href="camera-filter.php" class="mt-4 md:mt-0 bg-gradient-to-r from-emerald-500 to-green-500 text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5 flex items-center gap-2 font-bold text-sm border-b-4 border-green-700">
                 Camera Filter
-            </a>
+            </a> -->
         </div>
     </div>
 

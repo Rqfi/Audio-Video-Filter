@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aplikasi Filter Suara (Client-Side FFmpeg)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        @keyframes pulse-red {
+            0%,
+            100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .animate-pulse-red {
+            animation: pulse-red 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+    </style>
+    <!-- Muat pustaka FFmpeg.wasm v0.12 -->
+    <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.7/dist/umd/ffmpeg.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/umd/index.js"></script>
+</head>
+
+<body class="bg-gray-100 min-h-screen p-4 py-8 font-sans">
+    <div class="max-w-[90rem] mx-auto mb-8 relative flex flex-col md:flex-row items-center justify-between">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-800">Audio & Video Filter</h1>
+            <p class="text-sm text-gray-500 mt-2">Filter rekaman suara dan video (Client-Side Version)</p>
+        </div>
+
+        <div class="flex flex-row gap-2">
+            <a href="voice-changer.html" class="mt-4 md:mt-0 bg-gradient-to-r from-rose-500 to-red-500 text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5 flex items-center gap-2 font-bold text-sm border-b-4 border-red-700">
+                Voice Changer
+            </a>
+            <a href="camera-filter.html" class="mt-4 md:mt-0 bg-gradient-to-r from-emerald-500 to-green-500 text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5 flex items-center gap-2 font-bold text-sm border-b-4 border-green-700">
+                Camera Filter
+            </a>
+        </div>
+    </div>
+
+    <!-- Status Loading FFmpeg -->
+    <div id="ffmpegStatus" class="max-w-[90rem] mx-auto mb-4 bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4 rounded-md flex justify-between items-center shadow-sm">
+        <div class="flex items-center gap-2 font-bold text-sm">
+            <svg class="animate-spin h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span id="ffmpegStatusText">Memuat engine pemrosesan FFmpeg ke dalam browser... (Harap tunggu)</span>
+        </div>
+    </div>
+
+    <div class="max-w-[90rem] mx-auto w-full grid grid-cols-1 lg:grid-cols-3 gap-6 h-auto lg:h-[75vh]">
+
+        <!-- SECTION 1: INPUT -->
+        <div class="bg-white rounded-xl shadow-lg p-6 flex flex-col h-full overflow-y-auto no-scrollbar border-t-4 border-indigo-500 relative">
+            <div id="loadingOverlay" class="absolute inset-0 bg-white/80 backdrop-blur-sm z-20 flex flex-col items-center justify-center hidden rounded-xl">
+                <div class="text-indigo-600 font-bold mb-2">Sedang Memproses File...</div>
+                <div class="w-2/3 bg-gray-200 rounded-full h-2.5 dark:bg-gray-300">
+                    <div id="progressBar" class="bg-indigo-600 h-2.5 rounded-full" style="width: 0%"></div>
+                </div>
+                <div id="progressText" class="text-xs text-gray-500 mt-2">0%</div>
+            </div>
+
+            <h2 class="text-lg font-bold text-gray-800 mb-2 border-b pb-3 flex items-center">
+                <span class="bg-indigo-100 text-indigo-700 w-8 h-8 rounded-full flex items-center justify-center mr-3">1</span>
+                Input Variabel
+            </h2>
+
+            <!-- TABS -->
+            <div class="flex space-x-2 mb-4 border-b border-gray-200">
+                <button id="tabAudio" class="py-2 px-4 border-b-2 border-indigo-600 font-bold text-indigo-600 focus:outline-none" onclick="switchTab('audio')">🎵 Audio</button>
+                <button id="tabVideo" class="py-2 px-4 border-b-2 border-transparent font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300 transition focus:outline-none" onclick="switchTab('video')">🎞️ Video</button>
+            </div>
+
+            <!-- TAB 1: FORM AUDIO -->
+            <form id="formAudio" class="space-y-6 flex-1" onsubmit="processAudio(event)">
+                <div>
+                    <label for="judul" class="block text-sm font-medium text-gray-700 mb-2">Judul Audio</label>
+                    <input type="text" id="judul" placeholder="Masukkan judul audio..."
+                        class="mt-1 block w-full pl-3 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+                </div>
+
+                <div class="p-4 border border-gray-200 rounded-lg bg-gray-50">
+                    <label class="block text-sm font-bold text-gray-700 mb-3">Sumber Audio (Unggah Manual)</label>
+
+                    <input type="file" id="audio" accept=".mp3, .wav, .ogg, .m4a, .webm" required
+                        class="mt-4 block w-full text-sm text-gray-500
+                                file:mr-4 file:py-2 file:px-4
+                                file:rounded-md file:border-0
+                                file:text-sm file:font-medium
+                                file:bg-indigo-100 file:text-indigo-700
+                                hover:file:bg-indigo-200 cursor-pointer border border-gray-300 p-1 rounded-md bg-white">
+                </div>
+
+                <div>
+                    <label for="filter" class="block text-sm font-medium text-gray-700 mb-2">Pilih Efek Suara</label>
+                    <select id="filter" class="mt-1 block w-full pl-3 pr-8 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+                        <option value="none">Asli (Tanpa Efek)</option>
+                        <option value="chipmunk">🐿️ Suara Tupai</option>
+                        <option value="monster">🧟 Suara Monster</option>
+                        <option value="vader">🦹 Suara Penjahat (Vader)</option>
+                        <option value="robot">🤖 Suara Robot</option>
+                        <option value="alien">👽 Suara Alien</option>
+                        <option value="ghost">👻 Suara Hantu / Seram</option>
+                        <option value="radio">📻 Suara Radio Lama</option>
+                        <option value="telephone">📞 Telepon Terkompresi</option>
+                        <option value="megaphone">📣 Suara Megaphone (Toa)</option>
+                        <option value="echo">⛰️ Suara Menggema di Gua</option>
+                        <option value="concert">🏟️ Suara Konser / Aula Besar</option>
+                        <option value="underwater">🫧 Di Bawah Air</option>
+                        <option value="muffled">🚪 Suara Teredam (Di Balik Pintu)</option>
+                        <option value="nightcore">⚡ Musik Nightcore</option>
+                        <option value="slowmo">🐢 Slow Motion</option>
+                        <option value="8bit">👾 Suara 8-Bit / Retro Game</option>
+                    </select>
+                </div>
+
+                <div class="pt-4 mt-auto">
+                    <button type="submit" id="btnSubmitAudio" disabled class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-bold text-white bg-indigo-400 cursor-not-allowed transition">
+                        Memuat Engine...
+                    </button>
+                </div>
+            </form>
+
+            <!-- TAB 2: FORM VIDEO -->
+            <form id="formVideo" class="space-y-6 flex-1 hidden" onsubmit="processVideo(event)">
+                <div>
+                    <label for="judul_video" class="block text-sm font-medium text-gray-700 mb-2">Judul Video</label>
+                    <input type="text" id="judul_video" placeholder="Masukkan judul video..."
+                        class="mt-1 block w-full pl-3 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+                </div>
+
+                <div class="p-4 border border-gray-200 rounded-lg bg-gray-50">
+                    <label class="block text-sm font-bold text-gray-700 mb-3">Sumber Video (Unggah Manual)</label>
+                    <input type="file" id="video" accept=".mp4, .mov, .avi, .mkv, .webm" required
+                        class="block w-full text-sm text-gray-500
+                                file:mr-4 file:py-2 file:px-4
+                                file:rounded-md file:border-0
+                                file:text-sm file:font-medium
+                                file:bg-indigo-100 file:text-indigo-700
+                                hover:file:bg-indigo-200 cursor-pointer border border-gray-300 p-1 rounded-md bg-white">
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="filter_suara_video" class="block text-sm font-medium text-gray-700 mb-2">Efek Suara</label>
+                        <select id="filter_suara_video" class="mt-1 block w-full pl-3 pr-8 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 transition text-sm">
+                            <option value="none">Asli</option>
+                            <option value="chipmunk">🐿️ Tupai</option>
+                            <option value="monster">🧟 Monster</option>
+                            <option value="vader">🦹 Vader</option>
+                            <option value="robot">🤖 Robot</option>
+                            <option value="alien">👽 Alien</option>
+                            <option value="ghost">👻 Hantu</option>
+                            <option value="radio">📻 Radio</option>
+                            <option value="telephone">📞 Telepon</option>
+                            <option value="megaphone">📣 Toa</option>
+                            <option value="echo">⛰️ Echo</option>
+                            <option value="concert">🏟️ Konser</option>
+                            <option value="underwater">🫧 Air</option>
+                            <option value="muffled">🚪 Muffled</option>
+                            <option value="nightcore">⚡ Nightcore</option>
+                            <option value="slowmo">🐢 Slowmo</option>
+                            <option value="8bit">👾 8-Bit</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="filter_video" class="block text-sm font-medium text-gray-700 mb-2">Efek Video</label>
+                        <select id="filter_video" class="mt-1 block w-full pl-3 pr-8 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 transition text-sm">
+                            <option value="none">Asli</option>
+                            <option value="grayscale">Grayscale</option>
+                            <option value="sepia">Sepia</option>
+                            <option value="invert">Invert Colors</option>
+                            <option value="blur">Blur</option>
+                            <option value="vintage">Vintage</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="pt-4 mt-auto">
+                    <button type="submit" id="btnSubmitVideo" disabled class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-bold text-white bg-indigo-400 cursor-not-allowed transition">
+                        Memuat Engine...
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- SECTION 2: HASIL OUTPUT -->
+        <div class="bg-white rounded-xl shadow-lg p-6 flex flex-col h-full overflow-y-auto no-scrollbar border-t-4 border-green-500 bg-gradient-to-b from-white to-gray-50">
+            <h2 class="text-lg font-bold text-gray-800 border-b pb-3 flex items-center">
+                <span class="bg-green-100 text-green-700 w-8 h-8 rounded-full flex items-center justify-center mr-3">2</span>
+                Hasil Proses Filter
+            </h2>
+
+            <div class="flex-1 flex flex-col items-center justify-center" id="outputContainer">
+                <div class="flex flex-col items-center text-gray-400 opacity-60" id="waitingState">
+                    <span class="text-6xl mb-4">📼</span>
+                    <p class="text-sm font-medium text-center">Menunggu input.<br>Hasil akan muncul di sini.</p>
+                </div>
+
+                <div class="w-full flex flex-col items-center animate-fade-in hidden" id="resultState">
+                    <img id="resultAvatar" src="" alt="Avatar" class="w-28 h-28 rounded-full bg-white shadow-md border-4 border-green-100 mb-5 hover:scale-105 transition-transform">
+                    
+                    <div class="text-center text-gray-800 mb-5 p-4 bg-green-50 rounded-lg border border-green-200 w-full text-sm font-medium" id="resultMessage">
+                        Berhasil diproses!
+                    </div>
+
+                    <audio id="resultAudio" controls class="w-full mb-5 shadow-sm rounded-full hidden"></audio>
+                    
+                    <video id="resultVideo" controls class="w-full mb-5 shadow-sm rounded-lg border border-gray-200 bg-black hidden"></video>
+
+                    <a id="btnDownload" href="#" download="Output.mp4" class="w-full flex justify-center py-3 px-4 rounded-md shadow-md text-sm font-bold text-white bg-green-600 hover:bg-green-700 transition">
+                        Download File Output
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECTION 3: RIWAYAT -->
+        <div class="bg-white rounded-xl shadow-lg p-6 flex flex-col h-full overflow-y-auto no-scrollbar border-t-4 border-gray-400">
+            <h2 class="text-lg font-bold text-gray-800 mb-6 border-b pb-3 flex justify-between items-center">
+                <div class="flex items-center">
+                    <span class="bg-gray-200 text-gray-700 w-8 h-8 rounded-full flex items-center justify-center mr-3">3</span>
+                    Riwayat Sesi
+                </div>
+                <span id="historyCount" class="bg-gray-100 text-gray-600 text-xs font-bold px-2.5 py-1 rounded-full hidden">0 Total</span>
+            </h2>
+
+            <div class="flex-1">
+                <div id="emptyHistory" class="flex flex-col items-center justify-center h-full text-gray-400 opacity-60">
+                    <span class="text-5xl mb-4">📁</span>
+                    <p class="text-sm font-medium text-center">Belum ada riwayat proses.<br>(Data akan hilang saat refresh)</p>
+                </div>
+
+                <div id="historyListContainer" class="space-y-4 hidden">
+                    <!-- Item riwayat disisipkan di sini via JS -->
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Modal Riwayat -->
+    <div id="audioModal" class="fixed inset-0 bg-gray-900/60 hidden flex items-center justify-center z-50 transition-opacity backdrop-blur-sm px-4">
+        <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-3xl w-full relative transform transition-all">
+            <button onclick="closeAudioModal()" class="absolute top-4 right-4 text-gray-400 hover:text-red-500 bg-gray-100 hover:bg-red-50 rounded-full w-8 h-8 flex items-center justify-center transition font-bold z-10">
+                &times;
+            </button>
+
+            <div class="flex items-center gap-3 mb-4 pr-6">
+                <div id="modalIcon" class="w-12 h-12 rounded-full bg-indigo-100 text-indigo-500 flex items-center justify-center text-2xl shrink-0 shadow-inner">🎵</div>
+                <div class="overflow-hidden">
+                    <h3 id="modalTitle" class="text-lg font-bold text-gray-800 truncate">Judul</h3>
+                    <div class="flex items-center gap-2 mt-1">
+                        <span id="modalFilter" class="bg-indigo-100 text-indigo-800 text-[10px] font-bold px-2 py-0.5 rounded shadow-sm uppercase">FILTER</span>
+                        <span id="modalDate" class="text-xs text-gray-500 font-medium">Tanggal</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-gray-50 p-3 rounded-lg border border-gray-200 mb-5">
+                <p id="modalOriginal" class="text-[11px] text-gray-500 truncate" title="File Asli">📁 Asli: file.mp3</p>
+            </div>
+
+            <audio id="modalAudio" controls class="w-full shadow-sm rounded-full bg-gray-50 hidden"></audio>
+            <video id="modalVideo" controls class="w-full shadow-sm rounded-lg bg-black hidden mt-3"></video>
+        </div>
+    </div>
+
+    <!-- Script Utama (Menggantikan PHP) -->
+    <script src="js/client-ffmpeg.js"></script>
+    <script>
+        function switchTab(tab) {
+            const btnAudio = document.getElementById('tabAudio');
+            const btnVideo = document.getElementById('tabVideo');
+            const formAudio = document.getElementById('formAudio');
+            const formVideo = document.getElementById('formVideo');
+
+            if (tab === 'audio') {
+                btnAudio.className = "py-2 px-4 border-b-2 border-indigo-600 font-bold text-indigo-600 focus:outline-none";
+                btnVideo.className = "py-2 px-4 border-b-2 border-transparent font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300 transition focus:outline-none";
+                formAudio.classList.remove('hidden');
+                formVideo.classList.add('hidden');
+            } else {
+                btnVideo.className = "py-2 px-4 border-b-2 border-indigo-600 font-bold text-indigo-600 focus:outline-none";
+                btnAudio.className = "py-2 px-4 border-b-2 border-transparent font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300 transition focus:outline-none";
+                formVideo.classList.remove('hidden');
+                formAudio.classList.add('hidden');
+            }
+        }
+    </script>
+</body>
+</html>
