@@ -63,8 +63,7 @@
                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
                 </path>
             </svg>
-            <span id="ffmpegStatusText">Mengunduh Engine Pemrosesan (±30MB)... Kunjungan berikutnya akan instan karena
-                tersimpan di cache.</span>
+            <span id="ffmpegStatusText">Mengunduh Engine Pemrosesan (±30MB)...</span>
         </div>
     </div>
 
@@ -110,15 +109,18 @@
                     <label class="block text-sm font-bold text-gray-700 mb-3">Sumber Audio (Pilih File / Rekam)</label>
 
                     <div class="flex items-center gap-3 mb-4">
-                        <button type="button" id="recordBtn" class="bg-red-100 text-red-600 px-4 py-2 rounded-md text-sm font-bold hover:bg-red-200 transition flex items-center gap-2 shadow-sm border border-red-200">
+                        <button type="button" id="recordBtn"
+                            class="bg-red-100 text-red-600 px-4 py-2 rounded-md text-sm font-bold hover:bg-red-200 transition flex items-center gap-2 shadow-sm border border-red-200">
                             🎙️ Mulai Merekam
                         </button>
-                        <span id="recordIndicator" class="text-xs text-red-600 font-bold hidden animate-pulse-red flex items-center gap-1">
+                        <span id="recordIndicator"
+                            class="text-xs text-red-600 font-bold hidden animate-pulse-red flex items-center gap-1">
                             <span class="w-2.5 h-2.5 bg-red-600 rounded-full inline-block"></span> Merekam...
                         </span>
                     </div>
 
-                    <div id="previewContainer" class="hidden mb-4 p-3 bg-indigo-50 border border-indigo-100 rounded-md shadow-inner">
+                    <div id="previewContainer"
+                        class="hidden mb-4 p-3 bg-indigo-50 border border-indigo-100 rounded-md shadow-inner">
                         <p class="text-xs font-bold text-indigo-800 mb-2">🎧 Pratinjau Rekaman Anda:</p>
                         <audio id="audioPreview" controls class="w-full h-8 rounded-full"></audio>
                     </div>
@@ -290,13 +292,18 @@
                 </div>
                 <div class="flex items-center gap-2">
                     <span id="historyCount"
-                        class="bg-gray-100 text-gray-600 text-xs font-bold px-2.5 py-1 rounded-full hidden">0 Total</span>
+                        class="bg-gray-100 text-gray-600 text-xs font-bold px-2.5 py-1 rounded-full hidden">0
+                        Total</span>
                 </div>
             </h2>
 
             <div id="historyActions" class="flex gap-2 mb-4 hidden">
-                <button onclick="downloadAllHistory()" class="flex-1 bg-green-50 text-green-600 border border-green-200 text-xs font-bold py-2 px-3 rounded hover:bg-green-100 transition shadow-sm">⬇️ Unduh Semua</button>
-                <button onclick="deleteAllHistory()" class="flex-1 bg-red-50 text-red-600 border border-red-200 text-xs font-bold py-2 px-3 rounded hover:bg-red-100 transition shadow-sm">🗑️ Hapus Semua</button>
+                <button onclick="downloadAllHistory()"
+                    class="flex-1 bg-green-50 text-green-600 border border-green-200 text-xs font-bold py-2 px-3 rounded hover:bg-green-100 transition shadow-sm">⬇️
+                    Unduh Semua</button>
+                <button onclick="deleteAllHistory()"
+                    class="flex-1 bg-red-50 text-red-600 border border-red-200 text-xs font-bold py-2 px-3 rounded hover:bg-red-100 transition shadow-sm">🗑️
+                    Hapus Semua</button>
             </div>
 
             <div class="flex-1">
@@ -350,7 +357,7 @@
     <!-- Library FFmpeg WASM Lokal -->
     <script src="js/ffmpeg.js"></script>
     <script src="js/util.js"></script>
-    
+
     <!-- Script Logika Aplikasi -->
     <script src="js/client-ffmpeg.js"></script>
     <script>
