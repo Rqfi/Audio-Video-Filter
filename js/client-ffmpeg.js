@@ -5,6 +5,88 @@ let ffmpeg = null;
 let isReady = false;
 let sessionHistory = [];
 
+// ==========================================
+// PERSISTENSI DATA DENGAN INDEXEDDB
+// ==========================================
+const DB_NAME = 'AVFilterDB';
+const STORE_NAME = 'historyStore';
+
+function initDB() {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, 1);
+        request.onupgradeneeded = (e) => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains(STORE_NAME)) {
+                db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+            }
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+    });
+}
+
+async function saveToDB(item) {
+    const db = await initDB();
+    // Mengambil file asli dari blob url yang baru saja di-generate
+    const response = await fetch(item.url);
+    const blob = await response.blob();
+    const itemToSave = { ...item, blob }; // Simpan blob biner aslinya
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        tx.objectStore(STORE_NAME).put(itemToSave);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+    });
+}
+
+async function loadFromDB() {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const req = tx.objectStore(STORE_NAME).getAll();
+        req.onsuccess = () => {
+            // Generate ulang Blob URL untuk sesi ini
+            const items = req.result.map(item => {
+                const newUrl = URL.createObjectURL(item.blob);
+                return { ...item, url: newUrl };
+            });
+            // Urutkan terbaru ke terlama
+            resolve(items.sort((a,b) => b.id - a.id));
+        };
+        req.onerror = () => reject(req.error);
+    });
+}
+
+async function deleteFromDB(id) {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        tx.objectStore(STORE_NAME).delete(id);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+    });
+}
+
+async function clearDB() {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        tx.objectStore(STORE_NAME).clear();
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+    });
+}
+
+// Muat riwayat saat halaman dibuka
+window.addEventListener('DOMContentLoaded', async () => {
+    try {
+        sessionHistory = await loadFromDB();
+        renderHistory();
+    } catch(e) {
+        console.error("Gagal load history dari IndexedDB", e);
+    }
+});
+
 async function loadFFmpeg() {
     if (isReady) return true;
     try {
@@ -212,14 +294,18 @@ function getExtension(filename) {
 
 function handleSuccess(title, filter, type, originalName, url) {
     const dateStr = new Date().toLocaleString('id-ID', {day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'});
+    const id = new Date().getTime(); // Generate ID unik
     
     const historyItem = {
-        title, filter, type, originalName, url, dateStr
+        id, title, filter, type, originalName, url, dateStr
     };
     
     sessionHistory.unshift(historyItem);
     renderHistory();
     renderOutput(historyItem);
+    
+    // Simpan ke database browser secara background
+    saveToDB(historyItem).catch(err => console.error("Gagal menyimpan ke DB", err));
 }
 
 function renderOutput(item) {
@@ -296,17 +382,22 @@ function renderHistory() {
     });
 }
 
-window.deleteHistoryItem = function(index) {
+window.deleteHistoryItem = async function(index) {
     if(confirm("Hapus item ini dari riwayat?")) {
+        const item = sessionHistory[index];
         sessionHistory.splice(index, 1);
         renderHistory();
+        if(item && item.id) {
+            await deleteFromDB(item.id);
+        }
     }
 };
 
-window.deleteAllHistory = function() {
+window.deleteAllHistory = async function() {
     if(confirm("Hapus seluruh riwayat sesi ini?")) {
         sessionHistory = [];
         renderHistory();
+        await clearDB();
     }
 };
 
