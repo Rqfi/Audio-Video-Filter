@@ -53,13 +53,13 @@
     </div>
 
     <!-- Status Loading FFmpeg -->
-    <div id="ffmpegStatus" class="max-w-[90rem] mx-auto mb-4 bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4 rounded-md flex justify-between items-center shadow-sm">
+    <div id="ffmpegStatus" class="max-w-[90rem] mx-auto mb-4 bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4 rounded-md flex justify-between items-center shadow-sm hidden">
         <div class="flex items-center gap-2 font-bold text-sm">
             <svg class="animate-spin h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
-            <span id="ffmpegStatusText">Memuat engine pemrosesan FFmpeg ke dalam browser... (Harap tunggu)</span>
+            <span id="ffmpegStatusText">Mengunduh Engine Pemrosesan (±30MB)... Kunjungan berikutnya akan instan karena tersimpan di cache.</span>
         </div>
     </div>
 
@@ -130,8 +130,8 @@
                 </div>
 
                 <div class="pt-4 mt-auto">
-                    <button type="submit" id="btnSubmitAudio" disabled class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-bold text-white bg-indigo-400 cursor-not-allowed transition">
-                        Memuat Engine...
+                    <button type="submit" id="btnSubmitAudio" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition">
+                        Submit Audio
                     </button>
                 </div>
             </form>
@@ -193,8 +193,8 @@
                 </div>
 
                 <div class="pt-4 mt-auto">
-                    <button type="submit" id="btnSubmitVideo" disabled class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-bold text-white bg-indigo-400 cursor-not-allowed transition">
-                        Memuat Engine...
+                    <button type="submit" id="btnSubmitVideo" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition">
+                        Submit Video
                     </button>
                 </div>
             </form>
