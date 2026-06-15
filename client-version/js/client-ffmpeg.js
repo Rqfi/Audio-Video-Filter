@@ -6,7 +6,9 @@ let isReady = false;
 let sessionHistory = [];
 
 async function loadFFmpeg() {
+    if (isReady) return true;
     try {
+        document.getElementById('ffmpegStatus').classList.remove('hidden');
         ffmpeg = new FFmpeg();
         ffmpeg.on('progress', ({ progress }) => {
             const pct = Math.round(progress * 100);
@@ -26,21 +28,14 @@ async function loadFFmpeg() {
 
         isReady = true;
         document.getElementById('ffmpegStatus').classList.add('hidden');
-        
-        // Aktifkan tombol submit
-        const btnAudio = document.getElementById('btnSubmitAudio');
-        const btnVideo = document.getElementById('btnSubmitVideo');
-        if(btnAudio) { btnAudio.disabled = false; btnAudio.innerText = "Submit Audio"; btnAudio.classList.replace('bg-indigo-400', 'bg-indigo-600'); btnAudio.classList.replace('cursor-not-allowed', 'hover:bg-indigo-700'); }
-        if(btnVideo) { btnVideo.disabled = false; btnVideo.innerText = "Submit Video"; btnVideo.classList.replace('bg-indigo-400', 'bg-indigo-600'); btnVideo.classList.replace('cursor-not-allowed', 'hover:bg-indigo-700'); }
+        return true;
         
     } catch (e) {
         console.error("Gagal memuat FFmpeg", e);
         document.getElementById('ffmpegStatusText').innerHTML = "<span class='text-red-600'>Gagal memuat engine FFmpeg. Pastikan koneksi internet stabil.</span>";
+        return false;
     }
 }
-
-// Load saat halaman selesai
-window.addEventListener('DOMContentLoaded', loadFFmpeg);
 
 function getAudioFilterCommand(filterName) {
     switch (filterName) {
@@ -95,7 +90,10 @@ function hideLoading() {
 
 async function processAudio(e) {
     e.preventDefault();
-    if (!isReady) return alert("FFmpeg masih dimuat, harap tunggu.");
+    
+    // Lazy Load: Muat FFmpeg hanya jika pengguna mengklik Submit
+    const loaded = await loadFFmpeg();
+    if (!loaded) return;
 
     const fileInput = document.getElementById('audio');
     if (!fileInput.files.length) return alert("Pilih file audio!");
@@ -143,7 +141,10 @@ async function processAudio(e) {
 
 async function processVideo(e) {
     e.preventDefault();
-    if (!isReady) return alert("FFmpeg masih dimuat, harap tunggu.");
+    
+    // Lazy Load: Muat FFmpeg hanya jika pengguna mengklik Submit
+    const loaded = await loadFFmpeg();
+    if (!loaded) return;
 
     const fileInput = document.getElementById('video');
     if (!fileInput.files.length) return alert("Pilih file video!");
