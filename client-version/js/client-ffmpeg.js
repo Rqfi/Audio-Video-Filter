@@ -1,4 +1,4 @@
-const { FFmpeg } = window.FFmpeg;
+const { FFmpeg } = window.FFmpegWASM;
 const { fetchFile } = window.FFmpegUtil;
 
 let ffmpeg = null;
