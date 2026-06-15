@@ -20,10 +20,11 @@ async function loadFFmpeg() {
             }
         });
 
-        // Memuat engine secara LOKAL untuk memastikan 100% bebas dari blokir CORS/CSP
+        // Memuat engine secara LOKAL dengan URL absolut dan Blob agar tidak terjadi error module specifier
+        const baseURL = window.location.href.split('?')[0].replace(/\/$/, '') + '/js';
         await ffmpeg.load({
-            coreURL: 'js/ffmpeg-core.js',
-            wasmURL: 'js/ffmpeg-core.wasm'
+            coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+            wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm')
         });
 
         isReady = true;
