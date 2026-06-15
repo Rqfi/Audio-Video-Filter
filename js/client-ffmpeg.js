@@ -253,17 +253,20 @@ function renderHistory() {
     const list = document.getElementById('historyListContainer');
     const empty = document.getElementById('emptyHistory');
     const count = document.getElementById('historyCount');
+    const actions = document.getElementById('historyActions');
 
     if (sessionHistory.length === 0) {
         list.classList.add('hidden');
         empty.classList.remove('hidden');
         count.classList.add('hidden');
+        if (actions) actions.classList.add('hidden');
         return;
     }
 
     empty.classList.add('hidden');
     list.classList.remove('hidden');
     count.classList.remove('hidden');
+    if (actions) actions.classList.remove('hidden');
     count.innerText = sessionHistory.length + ' Total';
 
     list.innerHTML = '';
@@ -286,11 +289,41 @@ function renderHistory() {
             <div class="text-xs text-gray-400 mb-4 font-medium">${item.dateStr}</div>
             <div class="flex gap-2" onclick="event.stopPropagation();">
                 <a href="${item.url}" download="${item.title}.${item.type === 'video' ? 'mp4' : 'mp3'}" class="flex-1 text-center text-indigo-600 bg-indigo-100 hover:bg-indigo-200 font-semibold rounded text-xs px-2 py-2 transition">Unduh</a>
+                <button onclick="deleteHistoryItem(${index})" title="Hapus" class="flex-none bg-red-100 text-red-600 px-3 rounded hover:bg-red-200 transition font-bold">🗑️</button>
             </div>
         `;
         list.appendChild(div);
     });
 }
+
+window.deleteHistoryItem = function(index) {
+    if(confirm("Hapus item ini dari riwayat?")) {
+        sessionHistory.splice(index, 1);
+        renderHistory();
+    }
+};
+
+window.deleteAllHistory = function() {
+    if(confirm("Hapus seluruh riwayat sesi ini?")) {
+        sessionHistory = [];
+        renderHistory();
+    }
+};
+
+window.downloadAllHistory = function() {
+    if(sessionHistory.length === 0) return;
+    alert("Proses pengunduhan ganda dimulai. Izinkan browser jika ada pop-up konfirmasi.");
+    sessionHistory.forEach((item, idx) => {
+        setTimeout(() => {
+            const a = document.createElement('a');
+            a.href = item.url;
+            a.download = `${item.title}.${item.type === 'video' ? 'mp4' : 'mp3'}`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }, idx * 500); // delay sedikit agar browser tidak menolak multiple download
+    });
+};
 
 function openAudioModal(item) {
     document.getElementById('modalTitle').innerText = item.title;
