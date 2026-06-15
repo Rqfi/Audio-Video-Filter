@@ -20,9 +20,9 @@ async function loadFFmpeg() {
             }
         });
 
-        // Menggunakan toBlobURL agar script Web Worker bisa berjalan di domain Vercel (bypassing strict CORS & 404 pathing)
-        const coreURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd';
-        const ffmpegURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd';
+        // Menggunakan unpkg.com karena lebih stabil untuk file WebAssembly Emscripten
+        const coreURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+        const ffmpegURL = 'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd';
         
         await ffmpeg.load({
             coreURL: await toBlobURL(`${coreURL}/ffmpeg-core.js`, 'text/javascript'),
