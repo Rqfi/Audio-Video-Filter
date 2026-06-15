@@ -1,5 +1,5 @@
 const { FFmpeg } = window.FFmpegWASM;
-const { fetchFile } = window.FFmpegUtil;
+const { fetchFile, toBlobURL } = window.FFmpegUtil;
 
 let ffmpeg = null;
 let isReady = false;
@@ -20,10 +20,11 @@ async function loadFFmpeg() {
             }
         });
 
-        // Pakai versi CDN yang mendukung non-SharedArrayBuffer (versi 0.12.x single-thread-ish atau core biasa)
+        // Menggunakan toBlobURL agar script Web Worker bisa berjalan di domain Vercel (bypassing strict CORS)
+        const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd';
         await ffmpeg.load({
-            coreURL: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js',
-            wasmURL: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm'
+            coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+            wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm')
         });
 
         isReady = true;
